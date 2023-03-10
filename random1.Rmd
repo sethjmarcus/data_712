@@ -1,0 +1,62 @@
+---
+title: "car_crash"
+author: "Seth Marcus"
+date: "2023-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(RSocrata)
+library(tidyr)
+library(cluster)
+library(factoextra)
+library(dplyr)
+library(purrr)
+```
+
+```{r}
+df = read.socrata("https://data.cityofnewyork.us/resource/h9gi-nx95.json")
+# all the nas of latitude are also na for longitude
+cleaned_data = df %>% drop_na(latitude)
+
+```
+
+
+```{r}
+cleaned_data = df %>% drop_na(latitude)
+cleaned_data$latitude = as.numeric(as.character(cleaned_data$latitude))
+cleaned_data$longitude = as.numeric(as.character(cleaned_data$longitude))
+#cleaned_data$latitude = scale(cleaned_data %>% select("latitude"))
+#cleaned_data$longitude = scale(cleaned_data %>% select("longitude"))
+```
+
+```{r}
+k2 = kmeans(cleaned_data %>% select("latitude", "longitude"), centers = 2, nstart=25)
+```
+
+```{r}
+set.seed(123)
+
+# function to compute total within-cluster sum of square 
+wss <- function(k) {
+  kmeans(cleaned_data %>% select(c("collision_id", "latitude", "longitude")), k, nstart = 10 )$tot.withinss
+}
+
+# Compute and plot wss for k = 1 to k = 15
+k.values <- 100:200
+
+# extract wss for 2-15 clusters
+wss_values <- map_dbl(k.values, wss)
+
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+```
+
+
+```{r}
+fviz_cluster(k2, geom = "point", data = cleaned_data%>%select(c("latitude", "longitude"))) + ggtitle("k = 2")
+```
+

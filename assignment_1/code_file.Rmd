@@ -1,0 +1,105 @@
+---
+title: "assignment_1"
+author: "Seth Marcus"
+date: "2023-02-02"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE}
+rm(list=ls())
+gc()
+directory = "/home/seth/Documents/Masters/Data712/assignment_1/"
+setwd(directory)
+set.seed(100)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+# needed libraries
+library("RSocrata")
+library("dplyr")
+library("tidyr")
+```
+
+
+```{r, echo=FALSE}
+# read in file
+df = read.socrata("https://data.cityofnewyork.us/resource/9jgj-bmct.json?$select=complaint_number,incident_address_3 as zipcode,complaint_type_311,date_received")
+```
+
+
+```{r, echo=FALSE}
+# data cleaning
+print(nrow(df))
+# Remove nas and year 2023 because that is the current year. Iff doing year by year
+#cleaned_data = filter(cleaned_data, format(cleaned_data$date_received, "%Y")!=2023)
+#print(nrow(cleaned_data))
+
+# remove rows where the the zipcode is na
+cleaned_data = filter(df, !is.na(df$zipcode))
+print(nrow(cleaned_data))
+# remove rows where the the complaint type is na
+cleaned_data = filter(cleaned_data, !is.na(cleaned_data$complaint_type_311))
+print(nrow(cleaned_data))
+# edit zipcodes that are +4 to standard
+cleaned_data = cleaned_data %>% mutate(zipcode = substr(zipcode, start=1, stop=5))
+print(nrow(cleaned_data))
+# remove all zipcodes >= 11697, the largest zipcode
+cleaned_data = filter(cleaned_data, zipcode <= 11697)
+print(nrow(cleaned_data))
+# remove all zipcodes that are not 5 digits
+cleaned_data = filter(cleaned_data, nchar(zipcode)==5)
+print(nrow(cleaned_data))
+# Only get 'valid' complaint types
+cleaned_data = cleaned_data[cleaned_data$complaint_type_311 %in% c('Asbestos', 'Cooling Tower','Indoor Air Quality', 'Indoor Sewage', 'Mold'), ]
+print(nrow(cleaned_data))
+# na really means 0 (for if there are no complaints, there are 0 complaints)
+cleaned_data = dplyr::mutate_all(cleaned_data, ~replace_na(.,0))
+```
+
+
+```{r, echo=FALSE}
+cleaned_data %>% group_by(complaint_type_311) %>%
+  summarise(count=n())
+```
+
+```{r, echo=FALSE}
+# get the data into a prettier form. Needed to produce the tables
+pretty_table = cleaned_data %>%
+  group_by(zipcode, complaint_type_311) %>% 
+  summarize(cnt=n()) %>% 
+  pivot_wider(names_from = complaint_type_311, values_from=cnt)
+pretty_table = mutate_all(pretty_table, ~replace_na(.,0))
+```
+
+```{r}
+# generate tables
+for(i in names(pretty_table)){
+  pretty_table %>% select(zipcode, i) %>% arrange(desc(pretty_table[[i]])) %>% head() %>% print()
+  #pretty_table %>% select(zipcode, i) %>% arrange(pretty_table[[i]]) %>% head() %>% print()
+}
+```
+
+```{r}
+
+```
+
+
+```{r, echo=FALSE}
+# interesting data about how many complaints per year
+# count(cleaned_data_2, format(cleaned_data_2$date_received, "%Y"))
+# interesting to see the distribution of cooling tower complaints
+# pretty_table %>% group_by(`Cooling Tower`) %>% summarise(cnt=n())
+```
+
+
+```{r, echo=FALSE}
+test = chisq.test(cleaned_data$complaint_type_311, cleaned_data$zipcode)
+test
+```
