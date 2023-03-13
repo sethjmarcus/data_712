@@ -19,27 +19,29 @@ library("RSocrata")
 library("dplyr")
 library("tidyr")
 library("lubridate")
+library("psych")
 ```
 
 ```{r, echo=FALSE}
-# read in files
+# read in file/data
 restaurant_raw = read.socrata("https://data.cityofnewyork.us/resource/43nn-pn8j.json?$select=camis,zipcode,inspection_date,action,violation_code,violation_description,critical_flag,score,grade")
 rodent_raw = read.socrata("https://data.cityofnewyork.us/resource/p937-wjvj.json?$select=inspection_type,job_ticket_or_work_order_id,zip_code as zipcode,inspection_date,result")
 income_raw_2019 = read.csv("ACSST5Y2019S1901Data.csv")
-income_raw_2020 = read.csv("ACSST5Y2020S1901Data.csv")
-income_raw_2021 = read.csv("ACSST5Y2021S1901Data.csv")
 ```
 
 ```{r}
-# Pull out NYC Zip Codes. 
+# Pull out NYC Zip Codes. This will be used with regex later
 # See here: https://en.wikipedia.org/wiki/List_of_ZIP_Code_prefixes
 nyc_zipcodes_prefixes = c('*100[0-9]{2}', '*101[0-9]{2}', '*102[0-9]{2}', '*103[0-9]{2}', '*104[0-9]{2}', '*110[0-9]{2}','*111[0-9]{2}', '*112[0-9]{2}', '*113[0-9]{2}', '*114[0-9]{2}', '*116[0-9]{2}')
 ```
 
 ```{r}
 income_2019_filtered = income_raw_2019 %>% select(c('NAME','S1901_C02_012E', 'S1901_C02_013E'))
+# Remove zipcodes that don't match the pattern of valid NYC zipcodes.
+# TODO: get an actual list of NYC zipcodes and compare to that
 income_2019_filtered = income_2019_filtered[grepl(paste(nyc_zipcodes_prefixes, collapse="|"), income_2019_filtered$NAME),]
 
+# Rename columns
 names(income_2019_filtered)[names(income_2019_filtered) == 'NAME'] <- 'zipcode'
 names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_012E'] <- 'median'
 names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_013E'] <- 'avg'
@@ -48,50 +50,33 @@ names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_013E'] <- 
 
 ```{r}
 income_2019_filtered = data.frame(lapply(income_2019_filtered, as.character), stringsAsFactors = FALSE)
-```
-
-```{r}
 income_2019_filtered$zipcode = substr(income_2019_filtered$zipcode
                                    , nchar(income_2019_filtered$zipcode)-4
                                    , nchar(income_2019_filtered))
+income_2019_filtered$avg = as.numeric(as.character(income_2019_filtered$avg))
 ```
 
 
 ```{r}
-sum(income_2019_filtered$avg == '-' | income_2019_filtered$avg == '250,000+')
-```
+# Removing invalid Rows
+cat("Total: ", nrow(income_2019_filtered))
+income_2019_filtered = income_2019_filtered %>% filter(!is.na(income_2019_filtered$avg))
+cat("Afer removing invalid Average", nrow(income_2019_filtered))
 
-```{r}
-print(nrow(income_2019_filtered))
-income_2019_filtered = income_2019_filtered %>% subset(avg != '-')
-print(nrow(income_2019_filtered))
 ```
 
 
 ```{r}
- year(rodent_raw$inspection_date) %>% View()
-```
-
-```{r}
-# Find invalid zip codes
-rodent_raw %>% 
-  #filter(year(inspection_date)) %>%
-  distinct(zipcode) %>%
-  View()
-# 0, 00000, 10000, 12345, 458, na
-```
-
-```{r}
-print(nrow(rodent_raw))
-rodent_filtered = rodent_raw %>% filter(!zipcode %in% c('0','00000','10000','12345','458', NA)) %>% 
-print(nrow(rodent_filtered))
-```
-
-```{r}
+#filtering restaurant data. Only 2019, only valid zip codes, only valid scores
 restaurant_filtered_2019 = restaurant_raw %>% 
-  filter(year(inspection_date)==2019, 
-         !zipcode %in% c('12345',NA), 
-         !is.na(score))
+  filter(year(inspection_date)==2019)
+print(nrow(restaurant_filtered_2019))
+restaurant_filtered_2019 = restaurant_filtered_2019 %>%
+  filter(!zipcode %in% c('12345',NA))
+print(nrow(restaurant_filtered_2019))
+restaurant_filtered_2019 = restaurant_filtered_2019 %>%
+  filter(!is.na(score))
+print(nrow(restaurant_filtered_2019))
 restaurant_filtered_2019$score <- as.numeric(restaurant_filtered_2019$score)
 ```
 
@@ -101,26 +86,145 @@ restaurant_filtered_2019$score <- as.numeric(restaurant_filtered_2019$score)
 ```
 
 ```{r}
+# group the restaurant scores by zipcode and take the mean
 grouped_rest = restaurant_filtered_2019 %>%
   group_by(zipcode) %>%
   summarise(mean(score))
 ```
 
-```{r}
-grouped_rest %>% View()
-```
-
 
 ```{r}
+# First data merge
 merged_data = merge(x=income_2019_filtered, y=grouped_rest, by='zipcode', all=TRUE)
 ```
 
 
+```{r}
+# Remove rows that don't have a mean or don't have a score.
+print(nrow(merged_data))
+merged_data = merged_data %>%
+  filter(!is.na(merged_data$`mean(score)`) & !is.na(merged_data$avg))
+print(nrow(merged_data))  
+```
+
+
+```{r}
+describe(final_merge)
+```
+
+```{r}
+# Desrciptive Statistics
+options(scipen=999)
+ggplot(merged_data, aes(x=avg)) + 
+  geom_histogram(binwidth = 10000) + 
+  labs(x='Mean Income per Zip Code', y='Frequency', title='Frequency of Mean Income of Zip Codes in NYC')+
+  scale_x_continuous(n.breaks=10)
+  
+#options(scipen = 0)
+```
+
+
+```{r}
+# Descriptive statistics
+options(scipen=999)
+ggplot(merged_data, aes(x=`mean(score)`)) + 
+  geom_histogram() + #binwidth = 1
+  #scale_x_continuous(n.breaks=15)
+  labs(x='Mean Restaurant Health Score per Zip Code', y='Frequency', title='Frequency of Average Restaurant Health Score of Zip Codes in NYC')
+```
 
 
 
 ```{r}
-merged_data %>% View()
+# Find invalid zip codes
+rodent_raw %>% 
+  filter(year(inspection_date) == 2019) %>%
+  distinct(zipcode) %>%
+  View()
+# 0, 10000, 12345, na
 ```
 
+```{r}
+# remove rodent inspections that aren't 2019, or have an invalid zip code
+rodent_filtered = rodent_raw %>% filter(year(inspection_date)==2019)
+print(nrow(rodent_filtered))
+rodent_filtered = rodent_filtered %>% filter(!zipcode %in% c('0','10000','12345', NA))
+print(nrow(rodent_filtered))
+```
+
+```{r}
+# Sites that had 'Rat Activity'
+failed_sites = rodent_filtered %>% filter(result == 'Rat Activity')
+```
+
+```{r}
+grouped_rodents = failed_sites %>% 
+  group_by(zipcode) %>% 
+  summarise(rodent_cnt = n())
+```
+
+
+
+
+```{r}
+#left join. The final merge
+final_merge = merge(merged_data, grouped_rodents, by='zipcode', all.x=TRUE)
+```
+
+
+```{r}
+# Set NAs to 0, for if there are no reports, that means there were 0 reported active sightings
+final_merge$rodent_cnt[is.na(final_merge$rodent_cnt)] <- 0
+```
+
+
+```{r}
+# There are 6 zip codes that have a rodent count outside of this range. Remove
+# Them for they are extreme outliers
+outlier_val = 235.8+(3*(235.8-6))
+temp = final_merge %>% filter(rodent_cnt <= outlier_val)
+```
+
+
+```{r}
+regression_final = lm(formula= `mean(score)`~avg+rodent_cnt, data=temp)
+```
+
+
+```{r}
+summary(regression_final)
+```
+
+
+
+```{r}
+#descriptive statistics
+ggplot(temp, aes(x=rodent_cnt)) + 
+  geom_histogram() +
+  labs(x='Number of Reported Rodent Sightings Resulting in "Rat Activity"', y="Frequency", title='Frequency of Number of Positive Reported Rodent Sightings by Zip Code')
+```
+
+
+```{r}
+describe(temp$rodent_cnt)
+```
+
+
+
+Here below was from before I included the rodent dataset as my 3rd dataset.
+```{r}
+regression = lm(formula=`mean(score)`~avg, data=merged_data)
+```
+
+```{r}
+library(ggplot2)
+ggplot(merged_data, aes(x=avg, y=`mean(score)`)) + 
+  geom_point() + 
+  labs(x='Average Income of Zip Code',y='Average Restaurant Health Score',title = 'Average Income by Zip Code vs. Average Restaurant Health Score by Zip Code')+
+  stat_smooth(method="lm")
+```
+
+```{r}
+summary(regression)
+```
 
