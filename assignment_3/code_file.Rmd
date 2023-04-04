@@ -1,0 +1,177 @@
+---
+title: "assignment_3"
+author: "Seth Marcus"
+date: "2023-03-17"
+output: html_document
+---
+
+## Setup
+```{r setup, include=FALSE}
+rm(list=ls())
+gc()
+directory = "~/Documents/Masters/data712/assignment_3/"
+setwd(directory)
+set.seed(100)
+```
+
+## Read in Basic Libraries
+```{r}
+# Read in libraries
+library(readxl)
+library(dplyr)
+```
+
+## Read in Data
+```{r}
+oced_data = read_excel("OECDFamilies.xlsx", sheet=2)
+```
+
+### 1
+I am intrested in understanding more about the Proportion (%) of the population aged 15-29 neither employed nor in education or training since we want productive individuals in society, and these individuals tend to not be productive.
+
+### 2
+The inputs variables are length of paid paternity and maternity leave reserved for mother's in weeks and employment rate for all mothers (15-64 years old) with at least one child under 15.
+
+#### Why Important
+
+##### Maternity leave
+If the mother's are home, they will provide both a stable background for the child, leading them to be more likely to choose a professional path (and namely out of the gangs). Additionally, the are more able to hold their children accountable for their school work, netting a similar result.
+##### Employment rate for mothers
+If they're employed, probably means more money coming into the house, and coming from a wealthier background seems to imply becoming a professional in society.
+
+### 3
+
+#### Model
+
+```{r}
+regression = lm(unempl.y~mleave+emp.allmoms, data=oced_data)
+```
+
+#### Results
+```{r}
+summary(regression)
+```
+#### Interpetation
+The model is significant with a p-value of .0003 overall. Therefore, our initial assumption that there is no relationship between the variables can be rejected. In otherwords, our model shows that for every 1 percentage point increase in employment in mothers in child bearing age, there is a decrease in youth unemployment of 0.3848 percentage points.
+
+
+### 4
+
+##### Testing for Error Distribution
+
+```{r}
+library(MASS)
+```
+
+###### Check the mean is close to 0
+```{r}
+resid.1 = studres(regression)
+summary(resid.1)
+```
+The mean is close to 0, that that is good.
+
+###### Check the Distribution of Error Approximates a Normal Distribution
+```{r}
+hist(resid.1)
+qqnorm(resid.1)
+qqline(resid.1)
+```
+It's not the most normal distribution out there, but given the relatively small sample size, it's probably close enough. (Nothing is highlighted as an outlier in the qqplot, and the histogram is maybe right skewed a litle, but nothing crazy)
+Looking at the histogram of the variables at hand (see below), it does make sense to take the log of both `unempl.y` and `mleave`.
+```{r}
+hist(x=log(oced_data$unempl.y))
+hist(x=oced_data$unempl.y)
+
+hist(x=log(oced_data$mleave))
+hist(x=oced_data$mleave)
+
+hist(x=log(oced_data$emp.allmoms))
+hist(x=oced_data$emp.allmoms)
+```
+
+At this point, let's define `regression.2` as the same as above, but take the log of both `unempl.y` and `mleave`. Note: we need to add  to `mleave` because of divide by 0 errors.
+```{r}
+regression.2 = lm(log(unempl.y)~log(mleave+1)+emp.allmoms, data=oced_data)
+```
+
+
+```{r}
+summary(regression.2)
+```
+After comparing `regression.2` with `regression`, `regression.2` is just worse, so we will just ignore this 'fix'.
+
+##### Homoskedasticity
+```{r}
+# Calculate predicted values
+p.1 = predict(regression)
+# Standardized predicted values
+std.p.1 = (p.1-mean(p.1))/sd(p.1)
+# Calculate the residuals
+r.1 = resid(regression)
+# Standardize the residuals
+std.r.1 <- (r.1 - mean(r.1))/sd(r.1)
+# Plot the two as a scatterplot with an additional like along y (residuals) = 0
+plot(std.p.1,std.r.1,xlab="Standardized Predicted Values",ylab="Standarized Residuals",abline(0,0))
+```
+
+```{r}
+library(lmtest)
+```
+
+```{r}
+bptest(regression)
+```
+The hypothesis test is not significant, so we do not reject.
+
+##### Collinearity
+
+```{r}
+library(car)
+```
+```{r}
+vif(regression)
+```
+The VIF < 4, so we should be fine.
+
+##### Outliers
+```{r}
+leveragePlots(regression )
+```
+
+###### Cook's Distance
+```{r}
+cooksd = cooks.distance(regression)
+
+# Plot the Cook's Distance using the traditional 4/n criterion
+sample_size <- nrow(oced_data)
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 4/sample_size, col="green")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4/sample_size, names(cooksd),""), col="green")  # add labels
+```
+
+After looking at the leverage plots, there are 6 potential outliers. Using Cook's Distance, there is one outlier, 29, which we will remove from the new model, `regression.3`.
+
+##### Linearity
+```{r}
+crPlots(regression)
+```
+They look linear? Not sure how to interpet these. Oh well.
+
+
+
+## 5
+
+### Apply redresses
+Remove outlier (Spain)
+```{r}
+subset_oced_data = oced_data %>% filter(cname != 'Spain')
+regression.3 = lm(unempl.y~mleave+emp.allmoms, data=subset_oced_data)
+```
+
+```{r}
+summary(regression.3)
+```
+
+#### Interpetation
+The model is significant with a p-value of .0002 overall. Therefore, our initial assumption that there is no relationship between the variables can be rejected. In other words, our model shows that for every 1 percentage point increase in employment in mothers in child bearing age, there is a decrease in youth unemployment of 0.36 percentage points.
+
