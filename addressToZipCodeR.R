@@ -13,13 +13,10 @@ params = list(
    # Delivery Address in the destination address. May contain secondary unit 
    # designator, such as APT or SUITE, for Accountable mail.). Optional
    address1 = ""
-  
    # Delivery Address in the destination address. Required.
   ,address2 = "65-30 Kissena Blvd"
-  
   # City name of the destination address. Optional
   ,city = "Queens"
-  
   # Two-character state code of the destination address. Optional.
   ,state = "NY"
 )
@@ -40,12 +37,19 @@ queryString <- list('xml'= paste0(
   )
   ,'API' = "ZipCodeLookup"
 )
-
+# The url endpoint. Same for everyone.
 url <- "http://production.shippingapis.com/ShippingAPI.dll"
-
+# What is the encoding scheme
 encode <- "raw"
-
 response <- VERB("GET", url, query = queryString, content_type("application/xml"), encode = encode)
 
-# Get zipcode
-xml_text(xml_find_all(read_xml(response), ".//Zip5"))
+#convert binary response to readable xml
+temp = read_xml(response)
+# get the xml nodes that are Zip5. I copied this from stackoverflow. I don't
+# know how it works.
+nodes = xml_find_all(temp, ".//Zip5")
+# get the output/value of this node
+xml_text(nodes)
+
+# Get zipcode in one line
+# xml_text(xml_find_all(read_xml(response), ".//Zip5"))
