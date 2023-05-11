@@ -487,3 +487,63 @@ A 1% increase in the predictior is expected to result in a /Beta /100 unit effec
 
 # Day 10 (03/29/2023)
 
+## Analyzing Survey Data
+
+### How Survey Research Works: Drawing a Sample from a Population
+
+#### Generalizing from a Population
+* Draw a sample from the population.
+* Use that sample to make inferences about the population.
+
+#### Terms
+* **Population**: A group of people about whom you are trying to generalize.
+* **Sample**: A sub-group of people from the population who serve as the basis for your generalization.
+
+#### Random Sampling is a Counterweight to Inferential Problems in Making Generalizations
+Making Generalizations
+* Assuming that a group of people collectively demonstrate a particular trait.
+* Using samples to make inferences about populations is a form of generalizing.
+
+
+
+# Day 11 (04/19/2023)
+
+## Introduction
+* Analysts often ignore potential impact of missing data.
+* Ignoring missing data is a mistake.
+* Missing data can distort your results.
+* Distorted results can distort the decisions that are premised on your analytical findings.
+
+## Missing Data Affects Results
+
+* Response Bias: Stems from systematic differences in subgroups' propensity to answer questions.
+* Differences in people's willingness to answer *any* questions
+	* Example: Paranoid or hostile people?
+	* Sample weights could compensate to extent that response rates correlate with weighting variables.
+* Differences in people's willingness to answer *particular* questions.
+	* Example: Wealthier peope are ...
+
+### Illustration: Missing Data and Descriptive
+
+### Missing Data in Regression Analysis
+
+## Methods for Dealing with Missing Data
+
+### Method 1: Case Deletion
+
+### Method 2: Mean Imputation
+* Replace missing values with sample mean.
+* **DO NOT USE**
+	* Likely distort correlations
+	* Reduce variability in metric.
+	* Bias estimates
+
+### Method 3: Regression Imputation
+* Use relationships with existing data to guess missing data points' values.
+* **DO NOT USE**
+	* Artificially reinforces patterns observed in non-missing data; baking regression results into imputations.
+	* Likely increases significance estimates
+
+### Method 4: Multiple imputation with Randomness
+* Similar to regression imputation, but with some random variation injected into estimates
+

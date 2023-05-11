@@ -1,0 +1,116 @@
+---
+title: "Assignment 4"
+author: "Seth Marcus"
+date: "2023-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(Hmisc)
+library(survey)
+options(scipen=999)
+```
+
+
+```{r}
+#set up
+rm(list=ls())
+gc()
+directory = "/home/seth/Documents/Masters/data712/assignment_4/"
+setwd(directory)
+set.seed(100)
+```
+
+
+Load the data
+```{r}
+load('NISPUF21.RData')
+```
+
+```{r}
+# unique child identifier, had chicken pox, poverty status, marital status of mother, "FINAL SINGLE-FRAME CELL-PHONE RDD-PHASE WEIGHT (EXCLUDES TERRITORIES)"
+cols = c('SEQNUMC', 'HAD_CPOX', 'INCPOV1', 'MARITAL2', 'RDDWT_C_TERR')
+subset = NISPUF21[, cols]
+```
+
+
+
+```{r}
+
+count(subset,HAD_CPOX)
+count(subset,INCPOV1)
+count(subset,MARITAL2)
+
+```
+
+```{r}
+# Removes 89 "Don't Know" and 13 "Refused", totalling 102 removals
+clean_data = subset[!(subset$HAD_CPOX %in% c(77, 99)),]
+```
+
+
+```{r}
+# remove incpov1 = 4, for those are "unknown"
+```
+
+
+```{r}
+clean_data %>% head()
+```
+
+```{r}
+# get dummies of variables
+
+```
+
+
+
+
+
+```{r}
+count(clean_data,HAD_CPOX)
+count(clean_data,INCPOV1)
+count(clean_data,MARITAL2)
+```
+
+
+```{r}
+# Convert variables to rank, to show that they are categorical
+clean_data$HAD_CPOX = factor(clean_data$HAD_CPOX)
+clean_data$INCPOV1 = factor(clean_data$INCPOV1)
+clean_data$MARITAL2 = factor(clean_data$MARITAL2)
+```
+
+```{r}
+mylogit = glm(HAD_CPOX~INCPOV1+MARITAL2, data=clean_data, family="binomial")
+```
+
+```{r}
+summary(mylogit)
+```
+
+
+
+```{r}
+weighted_clean_data = svydesign(ids=clean_data$SEQNUMC, weight=clean_data$RDDWT_C_TERR, data=clean_data)
+```
+
+```{r}
+model = svyglm(HAD_CPOX~MARITAL2+INCPOV1, design=weighted_clean_data, family=quasibinomial)
+```
+
+```{r}
+summary(model)
+```
+
+
+```{r}
+model_fa= svyfactanal(HAD_CPOX~MARITAL2+INCPOV1, design = weighted_clean_data, factors=2)
+```
+
+
+
+
+
