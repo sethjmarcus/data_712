@@ -5,15 +5,6 @@ date: "2023-04-24"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(dplyr)
-library(Hmisc)
-library(survey)
-options(scipen=999)
-```
-
-
 ```{r}
 #set up
 rm(list=ls())
@@ -21,6 +12,14 @@ gc()
 directory = "/home/seth/Documents/Masters/data712/assignment_4/"
 setwd(directory)
 set.seed(100)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(Hmisc)
+library(survey)
+options(scipen=999)
 ```
 
 
@@ -35,39 +34,39 @@ cols = c('SEQNUMC', 'HAD_CPOX', 'INCPOV1', 'MARITAL2', 'RDDWT_C_TERR')
 subset = NISPUF21[, cols]
 ```
 
+Frequency Tables
+```{r}
+subset %>% 
+  group_by(INCPOV1) %>% 
+  summarise(n = n()) %>% 
+  mutate(freq = 100*n/sum(n))
+```
+
+```{r}
+subset %>% 
+  group_by(MARITAL2) %>% 
+  summarise(n = n()) %>% 
+  mutate(freq = 100*n/sum(n))
+```
 
 
 ```{r}
-
-count(subset,HAD_CPOX)
-count(subset,INCPOV1)
-count(subset,MARITAL2)
-
+subset %>% 
+  group_by(HAD_CPOX) %>% 
+  summarise(n = n()) %>% 
+  mutate(freq = 100*n/sum(n))
 ```
+
+
+
 
 ```{r}
 # Removes 89 "Don't Know" and 13 "Refused", totalling 102 removals
 clean_data = subset[!(subset$HAD_CPOX %in% c(77, 99)),]
+print(nrow(clean_data))
+clean_data = clean_data[!(clean_data$INCPOV1 %in% c(4)),]
+print(nrow(clean_data))
 ```
-
-
-```{r}
-# remove incpov1 = 4, for those are "unknown"
-```
-
-
-```{r}
-clean_data %>% head()
-```
-
-```{r}
-# get dummies of variables
-
-```
-
-
-
-
 
 ```{r}
 count(clean_data,HAD_CPOX)
@@ -104,13 +103,3 @@ model = svyglm(HAD_CPOX~MARITAL2+INCPOV1, design=weighted_clean_data, family=qua
 ```{r}
 summary(model)
 ```
-
-
-```{r}
-model_fa= svyfactanal(HAD_CPOX~MARITAL2+INCPOV1, design = weighted_clean_data, factors=2)
-```
-
-
-
-
-
