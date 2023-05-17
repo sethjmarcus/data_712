@@ -57,9 +57,6 @@ subset %>%
   mutate(freq = 100*n/sum(n))
 ```
 
-
-
-
 ```{r}
 # Removes 89 "Don't Know" and 13 "Refused", totalling 102 removals
 clean_data = subset[!(subset$HAD_CPOX %in% c(77, 99)),]
@@ -89,8 +86,6 @@ mylogit = glm(HAD_CPOX~INCPOV1+MARITAL2, data=clean_data, family="binomial")
 ```{r}
 summary(mylogit)
 ```
-
-
 
 ```{r}
 weighted_clean_data = svydesign(ids=clean_data$SEQNUMC, weight=clean_data$RDDWT_C_TERR, data=clean_data)
