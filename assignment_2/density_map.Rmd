@@ -1,0 +1,118 @@
+---
+title: "Density Map"
+author: "Seth Marcus"
+date: "2023-07-05"
+output: html_document
+---
+
+## Setup
+````{r, echo=FALSE}
+rm(list=ls())
+gc()
+directory = "~/Documents/Masters/data712/assignment_2/"
+setwd(directory)
+set.seed(100)
+```
+
+## needed libraries
+```{r}
+library("RSocrata")
+library("dplyr")
+library("tidyr")
+library("lubridate")
+library('sf')
+library("ggplot2")
+```
+
+## read in file/data
+```{r, echo=FALSE}
+restaurant_raw = read.socrata("https://data.cityofnewyork.us/resource/43nn-pn8j.json?$select=camis,zipcode,inspection_date,action,violation_code,violation_description,critical_flag,score,grade,cuisine_description")
+rodent_raw = read.socrata("https://data.cityofnewyork.us/resource/p937-wjvj.json?$select=inspection_type,job_ticket_or_work_order_id,zip_code as zipcode,inspection_date,result")
+income_raw_2019 = read.csv("ACSST5Y2019S1901Data.csv")
+zip_code_raw = read.socrata("https://data.cityofnewyork.us/resource/pri4-ifjk.json")
+```
+
+```{r}
+# Read in shapefile. TODO, use geojson instead
+nyc_shape <- read_sf(dsn = "/home/seth/Documents/Masters/data712/assignment_2/Modified Zip Code Tabulation Areas (MODZCTA)", layer = "geo_export_0547fb7c-0cef-4818-babc-6cbd021def07")
+names(nyc_shape)[names(nyc_shape) == 'modzcta'] <- 'zipcode'
+```
+
+
+## Filter and clean income data
+```{r}
+income_2019_filtered = income_raw_2019 %>% select(c('NAME','S1901_C02_012E', 'S1901_C02_013E'))
+
+# Rename columns
+names(income_2019_filtered)[names(income_2019_filtered) == 'NAME'] <- 'zipcode'
+names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_012E'] <- 'median_income'
+names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_013E'] <- 'avg_income'
+
+# clean zipcode column
+income_2019_filtered = data.frame(lapply(income_2019_filtered, as.character), stringsAsFactors = FALSE)
+income_2019_filtered$zipcode = substr(income_2019_filtered$zipcode
+                                      , nchar(income_2019_filtered$zipcode)-4
+                                      , nchar(income_2019_filtered))
+income_2019_filtered$avg = as.numeric(as.character(income_2019_filtered$avg))
+```
+
+
+## Filter and clean restaurant data
+```{r}
+#filtering restaurant data. Only 2019
+restaurant_filtered_2019 = restaurant_raw %>% filter(year(inspection_date)==2019)
+restaurant_filtered_2019 = restaurant_raw %>%
+  filter(!is.na(score))
+restaurant_filtered_2019$score <- as.numeric(restaurant_filtered_2019$score)
+```
+
+## Filter and clean rodent data
+```{r}
+rodent_filtered = rodent_raw %>% filter(year(inspection_date)==2019)
+```
+
+## Clean zipcode data
+```{r}
+names(zip_code_raw)[names(zip_code_raw) == 'zcta'] <- 'zipcode'
+```
+
+
+## Merge data
+
+### Group the restaurant data
+```{r}
+grouped_rest = restaurant_filtered_2019 %>%
+  group_by(zipcode) %>%
+  summarise(avg_score = mean(score))
+```
+
+### Group the rodent data
+```{r}
+grouped_rodent = rodent_filtered %>% 
+  group_by(zipcode) %>% 
+  summarise(cnt = n())
+```
+
+### Merge
+```{r}
+result = merge(nyc_shape, income_2019_filtered, by="zipcode", all.x = TRUE, all.y = F)
+result = merge(result, grouped_rest, by="zipcode")
+result = merge(result, grouped_rodent, by="zipcode")
+
+#result = result %>% 
+#  select(c("zipcode", "pop_est","the_geom.type", "the_geom.coordinates", "median_income", "avg_income", "avg_score", #"cnt"))
+```
+
+# Map
+```{r}
+ggplot(data = result) + 
+  geom_sf(mapping = aes(fill = avg_score), show.legend = TRUE) +
+  geom_sf(fill = NA) + 
+  scale_fill_gradient(
+                      name="placehoder",
+                      na.value="grey100",
+                      low="blue",
+                      high="red"
+                      )+
+  coord_sf()
+```

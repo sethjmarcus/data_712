@@ -24,7 +24,7 @@ library("psych")
 
 ```{r, echo=FALSE}
 # read in file/data
-restaurant_raw = read.socrata("https://data.cityofnewyork.us/resource/43nn-pn8j.json?$select=camis,zipcode,inspection_date,action,violation_code,violation_description,critical_flag,score,grade")
+restaurant_raw = read.socrata("https://data.cityofnewyork.us/resource/43nn-pn8j.json?$select=camis,zipcode,inspection_date,action,violation_code,violation_description,critical_flag,score,grade,cuisine_description")
 rodent_raw = read.socrata("https://data.cityofnewyork.us/resource/p937-wjvj.json?$select=inspection_type,job_ticket_or_work_order_id,zip_code as zipcode,inspection_date,result")
 income_raw_2019 = read.csv("ACSST5Y2019S1901Data.csv")
 ```
@@ -43,8 +43,8 @@ income_2019_filtered = income_2019_filtered[grepl(paste(nyc_zipcodes_prefixes, c
 
 # Rename columns
 names(income_2019_filtered)[names(income_2019_filtered) == 'NAME'] <- 'zipcode'
-names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_012E'] <- 'median'
-names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_013E'] <- 'avg'
+names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_012E'] <- 'median_income'
+names(income_2019_filtered)[names(income_2019_filtered) == 'S1901_C02_013E'] <- 'avg_income'
 
 ```
 
